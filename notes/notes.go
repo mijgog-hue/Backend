@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -10,6 +11,51 @@ import (
 type Note struct {
 	ID   int    `json:"id"`
 	Text string `json:"text"`
+}
+
+type Store interface {
+	Create(title string) Note
+	List() []Note
+	Get(id int) (Note, bool)
+	Delete(id int) bool
+}
+
+type MemoryNoteStore struct {
+	notes  []Note
+	nextID int
+}
+
+func NewMemoryStore() *MemoryNoteStore {
+	return &MemoryNoteStore{notes: []Note{}, nextID: 1}
+}
+
+func (s *MemoryNoteStore) Create(text string) Note {
+	n := Note{ID: s.nextID, Text: text}
+	s.nextID++
+	s.notes = append(s.notes, n)
+	return n
+}
+func (s *MemoryNoteStore) List() []Note {
+	return s.notes
+}
+
+func (s *MemoryNoteStore) Get(id int) (Note, bool) {
+	for _, n := range s.notes {
+		if n.ID == id {
+			return n, true
+		}
+	}
+	return Note{}, false
+}
+
+func (s *MemoryNoteStore) Delete(id int) bool {
+	for i, n := range s.notes {
+		if n.ID == id {
+			s.notes = append(s.notes[:i], s.notes[i+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
 var notes = []Note{}
@@ -81,4 +127,11 @@ func main() {
 	http.HandleFunc("DELETE /notes/{id}", deleteNoteHandler)
 	log.Println("server started on:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
+
+	s := NewMemoryStore()
+	s.Create("first")
+	s.Create("second")
+	fmt.Println(s.Delete(1))  // true
+	fmt.Println(s.Delete(99)) // false
+	fmt.Println(s.List())
 }
